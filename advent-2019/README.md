@@ -1,14 +1,8 @@
 # advent-2019
 
-A Clojure library designed to ... well, that part is up to you.
-
-## Usage
-
-FIXME
+Solutions to https://adventofcode.com/2019 in Clojure <3
 
 ## License
-
-Copyright © 2019 FIXME
 
 This program and the accompanying materials are made available under the
 terms of the Eclipse Public License 2.0 which is available at

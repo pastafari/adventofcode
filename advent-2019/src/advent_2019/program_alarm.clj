@@ -54,11 +54,29 @@
              (str/trim (slurp (io/reader (io/resource file))))
              #","))))
 
+(defn build-candidate-program
+  [program noun verb]
+  (-> program
+      (assoc-in [1] noun)
+      (assoc-in [2] verb)))
+
 (defn solve-1
   "Reads program and evals it"
   [file]
   (eval-program (read-program file)))
 
+
+(defn solve-2
+  [goal file]
+  (let [program (read-program file)
+        candidates (range 99)
+        success (for [noun candidates
+                      verb candidates
+                      :let [candidate-program (build-candidate-program program noun verb)
+                            result (first (eval-program candidate-program))]
+                      :when (= goal result)]
+                  (+ verb (* 100 noun)))]
+    (first success)))
 
 (deftest eval-program-tests
   (is (= [3500 9 10 70 2 3 11 0 99 30 40 50]

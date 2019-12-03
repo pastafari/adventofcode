@@ -84,10 +84,29 @@
   (let [points (find-intersecting-points wire1 wire2)]
     (first (sort-by manhattan-distance points))))
 
+
+(defn find-smallest-steps-to-intersection
+  [wire1 wire2]
+  (let [points1 (wire->points wire1)
+        points2 (wire->points wire2)
+        intersections (clojure.set/intersection (set (wire->points wire1))
+                                                (set (wire->points wire2)))
+        steps (for [p intersections]
+                (let [i (.indexOf points1 p)
+                      j (.indexOf points2 p)]
+                  {:steps (+ 2 i j) :point p}))]
+    (:steps (first (sort-by :steps
+                            steps)))))
+
 (defn solve-1
   [file]
   (let [[wire1 wire2] (read-wires file)]
-    (find-nearest-intersecting-point wire1 wire2)))
+    (apply + (find-nearest-intersecting-point wire1 wire2))))
+
+(defn solve-2
+  [file]
+  (let [[wire1 wire2] (read-wires file)]
+    (find-smallest-steps-to-intersection wire1 wire2)))
 
 (defn read-wires
   "Reads in csv input from file and returns a vector of two wires
@@ -102,7 +121,10 @@
 
 
 (deftest test-find-shortest-manhattan-distance
-  (is (= 159
-         (find-nearest-intersecting-point ["R75" "D30" "R83" "U83" "L12" "D49" "R71" "U7" "L72"]
-                                          ["U62" "R66" "U55" "R34" "D71" "R55" "D58" "R83"]))))
+  (let [wire-1 ["R75" "D30" "R83" "U83" "L12" "D49" "R71" "U7" "L72"]
+        wire-2 ["U62" "R66" "U55" "R34" "D71" "R55" "D58" "R83"]]
+    (is (= 159
+           (apply + (find-nearest-intersecting-point wire-1 wire-2))))
+    (is (= 610
+           (find-smallest-steps-to-intersection wire-1 wire-2)))))
 

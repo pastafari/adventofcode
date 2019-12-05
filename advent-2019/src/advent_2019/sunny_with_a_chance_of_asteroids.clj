@@ -42,14 +42,16 @@
   [program position _]
   (let [arg (Integer/parseInt (read-line))
         destination (program (inc position))]
-    (assoc-in program [destination] arg)))
+    {:program (assoc-in program [destination] arg)
+     :jump 2}))
 
 (defn eval-output
   "Outputs args to stdout. Returns program"
   [program position {:keys [mode-1]}]
   (let [arg (get-argument program (inc position) mode-1)]
     (println arg)
-    program))
+    {:program program
+     :jump 2}))
  
 (defn eval-add
   "Evaluates an add operation and returns program"
@@ -57,8 +59,9 @@
   (let [arg1 (get-argument program (+ position 1) mode-1)
         arg2 (get-argument program (+ position 2) mode-2)
         destination (program (+ position 3))]
-    (assoc-in program [destination] (+ arg1
-                                       arg2))))
+    {:program (assoc-in program [destination] (+ arg1
+                                                 arg2))
+     :jump 4}))
 
 (defn eval-multiply
   "Evaluates a multiple operation and returns program"
@@ -66,8 +69,9 @@
   (let [arg1 (get-argument program (+ position 1) mode-1)
         arg2 (get-argument program (+ position 2) mode-2)
         destination (program (+ position 3))]
-    (assoc-in program [destination] (* arg1
-                                       arg2))))
+    {:program (assoc-in program [destination] (* arg1
+                                                 arg2))
+     :jump 4}))
 
 (defn eval-op
   "Evals the op at the given position and returns new program"
@@ -76,27 +80,25 @@
     (= op 1) (eval-add program position parsed-op)
     (= op 2) (eval-multiply program position parsed-op)
     (= op 3) (eval-input program position parsed-op)
-    (= op 4) (eval-output program position parsed-op)))
+    (= op 4) (eval-output program position parsed-op)
+    ;;(= op 5) (eval-jump-if-true program position parsed-op)
+    ;;(= op 6) (eval-jump-if-false program position parsed-op)
+    ;;(= op 7) (eval-less-than program position parsed-op)
+    ;;(= op 8) (eval-equals program position parsed-op)
+    ))
 
-(defn jump
-  "How much to increment the program counter for the given op"
-  [op]
-  (cond
-    (= op 1) 4
-    (= op 2) 4
-    (= op 3) 2
-    (= op 4) 2))
 
 (defn eval-program
   "Evaluates a vector representing an Intcode program"
   [ops]
   (loop [program ops
          position 0]
-    (let [{:keys [op] :as parsed-op} (parse-op (program position))]      
+    (let [{:keys [op] :as parsed-op} (parse-op (program position))
+          {:keys [program jump]} (eval-op program position parsed-op)]      
       (if (halt? op)
         program
-        (recur (eval-op program position parsed-op)
-               (+ position (jump op)))))))
+        (recur program
+               (+ position jump))))))
 
 (defn read-program
   "Reads in csv input from file and returns a vector of integers

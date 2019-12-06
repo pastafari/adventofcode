@@ -43,7 +43,7 @@
   (let [arg (Integer/parseInt (read-line))
         destination (program (inc position))]
     {:program (assoc-in program [destination] arg)
-     :jump 2}))
+     :position (+ position 2)}))
 
 (defn eval-output
   "Outputs args to stdout. Returns program"
@@ -51,7 +51,7 @@
   (let [arg (get-argument program (inc position) mode-1)]
     (println arg)
     {:program program
-     :jump 2}))
+     :position (+ position 2)}))
  
 (defn eval-add
   "Evaluates an add operation and returns program"
@@ -61,7 +61,7 @@
         destination (program (+ position 3))]
     {:program (assoc-in program [destination] (+ arg1
                                                  arg2))
-     :jump 4}))
+     :position (+ position 4)}))
 
 (defn eval-multiply
   "Evaluates a multiple operation and returns program"
@@ -71,7 +71,55 @@
         destination (program (+ position 3))]
     {:program (assoc-in program [destination] (* arg1
                                                  arg2))
-     :jump 4}))
+     :position (+ position 4)}))
+
+(defn eval-jump-if-true
+  "if the first parameter is non-zero, it sets the instruction pointer to the value from the second parameter. Otherwise, it does nothing."
+  [program position {:keys [op mode-1 mode-2] :as parsed-op}]
+  (let [arg1 (get-argument program (+ position 1) mode-1)
+        arg2 (get-argument program (+ position 2) mode-2)
+        new-position (if (not (zero? arg1))
+                       arg2
+                       (+ position 3))]
+    {:program program
+     :position new-position}))
+
+(defn eval-jump-if-false
+  "if the first parameter is zero, it sets the instruction pointer to the value from the second parameter. Otherwise, it does nothing."
+  [program position {:keys [op mode-1 mode-2] :as parsed-op}]
+  (let [arg1 (get-argument program (+ position 1) mode-1)
+        arg2 (get-argument program (+ position 2) mode-2)
+        new-position (if (zero? arg1)
+                       arg2
+                       (+ position 3))]
+    {:program program
+     :position new-position}))
+
+(defn eval-less-than
+  "if the first parameter is less than the second parameter,
+  it stores 1 in the position given by the third parameter.
+  Otherwise, it stores 0."
+  [program position {:keys [op mode-1 mode-2] :as parsed-op}]
+  (let [arg1 (get-argument program (+ position 1) mode-1)
+        arg2 (get-argument program (+ position 2) mode-2)
+        destination (program (+ position 3))
+        new-position (+ position 4)
+        value (if (< arg1 arg2) 1 0)]
+    {:program (assoc-in program [destination] value)
+     :position new-position}))
+
+(defn eval-equals
+  "if the first parameter is equal to the second parameter,
+  it stores 1 in the position given by the third parameter.
+  Otherwise, it stores 0."
+  [program position {:keys [op mode-1 mode-2] :as parsed-op}]
+  (let [arg1 (get-argument program (+ position 1) mode-1)
+        arg2 (get-argument program (+ position 2) mode-2)
+        destination (program (+ position 3))
+        new-position (+ position 4)
+        value (if (= arg1 arg2) 1 0)]
+    {:program (assoc-in program [destination] value)
+     :position new-position}))
 
 (defn eval-op
   "Evals the op at the given position and returns new program"
@@ -81,11 +129,10 @@
     (= op 2) (eval-multiply program position parsed-op)
     (= op 3) (eval-input program position parsed-op)
     (= op 4) (eval-output program position parsed-op)
-    ;;(= op 5) (eval-jump-if-true program position parsed-op)
-    ;;(= op 6) (eval-jump-if-false program position parsed-op)
-    ;;(= op 7) (eval-less-than program position parsed-op)
-    ;;(= op 8) (eval-equals program position parsed-op)
-    ))
+    (= op 5) (eval-jump-if-true program position parsed-op)
+    (= op 6) (eval-jump-if-false program position parsed-op)
+    (= op 7) (eval-less-than program position parsed-op)
+    (= op 8) (eval-equals program position parsed-op)))
 
 
 (defn eval-program
@@ -94,11 +141,11 @@
   (loop [program ops
          position 0]
     (let [{:keys [op] :as parsed-op} (parse-op (program position))
-          {:keys [program jump]} (eval-op program position parsed-op)]      
+          {:keys [program position]} (eval-op program position parsed-op)]      
       (if (halt? op)
         program
         (recur program
-               (+ position jump))))))
+               position)))))
 
 (defn read-program
   "Reads in csv input from file and returns a vector of integers
@@ -109,7 +156,7 @@
              (str/trim (slurp (io/reader (io/resource file))))
              #","))))
 
-(defn solve-1
+(defn solve
   "Reads program and evals it"
   [file]
   (eval-program (read-program file)))

@@ -23,6 +23,12 @@
             0
             (uber/nodes graph))))
 
+(defn count-path-from-you-to-santa
+  [orbits you santa]
+  (let [graph (build-orbit-graph orbits)
+        path (alg/shortest-path graph you santa)]
+    (- (:cost path) 2)))
+
 (defn read-orbits
   "Reads in orbits from input file as [a b] implying b orbits a"
   [file]
@@ -35,3 +41,9 @@
   (-> file
       read-orbits
       count-direct-and-indirect-orbits))
+
+(defn solve-2
+  [file]
+  (-> file
+      read-orbits
+      (count-path-from-you-to-santa "YOU" "SAN")))

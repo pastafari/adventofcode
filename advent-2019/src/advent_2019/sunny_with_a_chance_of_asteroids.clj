@@ -132,7 +132,8 @@
     (= op 5) (eval-jump-if-true program position parsed-op)
     (= op 6) (eval-jump-if-false program position parsed-op)
     (= op 7) (eval-less-than program position parsed-op)
-    (= op 8) (eval-equals program position parsed-op)))
+    (= op 8) (eval-equals program position parsed-op)
+    (halt? op) {:program program :position position}))
 
 
 (defn eval-program

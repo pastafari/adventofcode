@@ -57,7 +57,6 @@
 (defn eval-input
   "Waits for an input from an Input, then updates and returns program"
   [program position input _]
-  (print "eval-inputL " position)
   (let [arg (read-instruction input)
         destination (program (inc position))]
     {:program (assoc-in program [destination] arg)
@@ -66,7 +65,6 @@
 (defn eval-output
   "Writes a val to an Output. Returns program"
   [program position output {:keys [mode-1]}]
-  (print "eval-output: " mode-1)
   (let [arg (get-argument program (inc position) mode-1)]
     (write output arg)
     {:program program

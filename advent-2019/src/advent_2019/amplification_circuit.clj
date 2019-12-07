@@ -2,7 +2,23 @@
   (:require [advent-2019.sunny-with-a-chance-of-asteroids :as intcode]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [clojure.core.async :as async]
             [clojure.test :refer [deftest is]]))
+
+(defrecord Wire [channel]
+  intcode/Input
+  (read-instruction [this]
+    (let [next (async/<!! channel)]
+      (if (int? next)
+        next
+        (Integer/parseInt next))))
+  intcode/Output
+  (write [this v] (async/>!! channel v)))
+
+(defprotocol Amplifier
+  (start [this])
+  (halted? [this]))
+
 
 (defn eval-amplify
   "An amplifier has two inputs: phase and input.
@@ -30,6 +46,26 @@
           0 ;; represents the input to the first amplifier, defined as 0.
           phases))
 
+(defn build-amplifier
+  "Builds a stateful amplifier which remembers its program memory
+  and instruction pointer during evaluation"
+  [program phase input output]
+  (let [program-state (atom {:program program
+                             :position 0
+                             :halted? false})]
+    (reify Amplifier
+      (start [this] (Thread.
+                     (fn []
+                       (async/>!! input phase) ;; the first input is always phase.
+                       (if (halted? this)
+                         @program-state
+                         (let [state (intcode/eval-op (:program @program-state)
+                                                      (:position @program-state)
+                                                      input
+                                                      output)]
+                           (swap! program-state state))))))
+      (halted? [this] (:halted? @program-state)))))
+
 
 (defn find-max-thruster-signal
   "evals program for all possible DISTINCT phase combinations,
@@ -49,6 +85,7 @@
   [file]
   (let [program (intcode/read-program file)]
     (find-max-thruster-signal program (range 5))))
+
 
 (deftest test-eval-amplifier-circuit
   (is (= 43210 (eval-amplifier-circuit [4 3 2 1 0]

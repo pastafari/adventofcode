@@ -141,18 +141,20 @@
      :position new-position}))
 
 (defn eval-op
-  "Evals the op at the given position and returns new program"
-  [program position input output {:keys [op] :as parsed-op}]
-  (cond
-    (= op 1) (eval-add program position parsed-op)
-    (= op 2) (eval-multiply program position parsed-op)
-    (= op 3) (eval-input program position input parsed-op)
-    (= op 4) (eval-output program position output parsed-op)
-    (= op 5) (eval-jump-if-true program position parsed-op)
-    (= op 6) (eval-jump-if-false program position parsed-op)
-    (= op 7) (eval-less-than program position parsed-op)
-    (= op 8) (eval-equals program position parsed-op)
-    (halt? op) {:program program :position position}))
+  "Evals the op at the given position and returns new program and position,
+  optionally returns a :halted? flag if done."
+  [program position input output]
+  (let [{:keys [op] :as parsed-op} (parse-op (program position))]
+    (cond
+      (= op 1) (eval-add program position parsed-op)
+      (= op 2) (eval-multiply program position parsed-op)
+      (= op 3) (eval-input program position input parsed-op)
+      (= op 4) (eval-output program position output parsed-op)
+      (= op 5) (eval-jump-if-true program position parsed-op)
+      (= op 6) (eval-jump-if-false program position parsed-op)
+      (= op 7) (eval-less-than program position parsed-op)
+      (= op 8) (eval-equals program position parsed-op)
+      (halt? op) {:program program :position position :halted? true})))
 
 
 (defn eval-program
@@ -163,10 +165,9 @@
              output *out*}}]
   (loop [program ops
          position 0]
-    (let [{:keys [op] :as parsed-op} (parse-op (program position))
-          {:keys [program position]} (eval-op program position input output parsed-op)]      
-      (if (halt? op)
-        program
+    (let [{:keys [program position halted?] :or {halted? false} :as result} (eval-op program position input output)]
+      (if halted?
+        result
         (recur program
                position)))))
 
@@ -187,15 +188,15 @@
 
 (deftest test-eval-program
   (is (= [3500 9 10 70 2 3 11 0 99 30 40 50]
-         (eval-program [1 9 10 3 2 3 11 0 99 30 40 50] {})))
+         (:program (eval-program [1 9 10 3 2 3 11 0 99 30 40 50] {}))))
   (is (= [2 0 0 0 99]
-         (eval-program [1 0 0 0 99] {})))
+         (:program (eval-program [1 0 0 0 99] {}))))
   (is (= [2 3 0 6 99]
-         (eval-program [2 3 0 3 99] {})))
+         (:program (eval-program [2 3 0 3 99] {}))))
   (is (= [2 4 4 5 99 9801]
-         (eval-program [2 4 4 5 99 0] {})))
+         (:program (eval-program [2 4 4 5 99 0] {}))))
   (is (= [30 1 1 4 2 5 6 0 99]
-         (eval-program [1 1 1 4 99 5 6 0 99] {}))))
+         (:program (eval-program [1 1 1 4 99 5 6 0 99] {})))))
 
 
 (deftest test-parse-op

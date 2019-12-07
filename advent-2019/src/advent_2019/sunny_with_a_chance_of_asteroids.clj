@@ -3,6 +3,23 @@
             [clojure.java.io :as io]
             [clojure.test :refer [deftest is]]))
 
+(defprotocol Input
+  "Represents an Input to an Intcode instruction"
+  (read-instruction [this] "Reads an input string, can block"))
+
+(defprotocol Output
+  (write [this v] "Writes an output string, can block"))
+
+;; This allows us to use *in* and *out* as defaults for reading
+;; and writing. But makes the system extensible for Day 7 - Part 2.
+(extend-protocol Input
+  clojure.lang.LineNumberingPushbackReader
+  (read-instruction [this] (Integer/parseInt (.readLine this))))
+
+(extend-protocol Output
+  java.io.PrintWriter
+  (write [this v] (.println this v)))
+
 (defn halt?
   [op]
   (= op 99))
@@ -38,18 +55,20 @@
     (immediate-mode? mode) (program position)))
 
 (defn eval-input
-  "Waits for an input, then processes it and returns program"
-  [program position _]
-  (let [arg (Integer/parseInt (read-line))
+  "Waits for an input from an Input, then updates and returns program"
+  [program position input _]
+  (print "eval-inputL " position)
+  (let [arg (read-instruction input)
         destination (program (inc position))]
     {:program (assoc-in program [destination] arg)
      :position (+ position 2)}))
 
 (defn eval-output
-  "Outputs args to stdout. Returns program"
-  [program position {:keys [mode-1]}]
+  "Writes a val to an Output. Returns program"
+  [program position output {:keys [mode-1]}]
+  (print "eval-output: " mode-1)
   (let [arg (get-argument program (inc position) mode-1)]
-    (println arg)
+    (write output arg)
     {:program program
      :position (+ position 2)}))
  
@@ -123,12 +142,12 @@
 
 (defn eval-op
   "Evals the op at the given position and returns new program"
-  [program position {:keys [op] :as parsed-op}]
+  [program position input output {:keys [op] :as parsed-op}]
   (cond
     (= op 1) (eval-add program position parsed-op)
     (= op 2) (eval-multiply program position parsed-op)
-    (= op 3) (eval-input program position parsed-op)
-    (= op 4) (eval-output program position parsed-op)
+    (= op 3) (eval-input program position input parsed-op)
+    (= op 4) (eval-output program position output parsed-op)
     (= op 5) (eval-jump-if-true program position parsed-op)
     (= op 6) (eval-jump-if-false program position parsed-op)
     (= op 7) (eval-less-than program position parsed-op)
@@ -137,12 +156,15 @@
 
 
 (defn eval-program
-  "Evaluates a vector representing an Intcode program"
-  [ops]
+  "Evaluates a vector representing an Intcode program.
+  Allows input-stream and output-stream to be configured via optional keys"
+  [ops {:keys [input output]
+        :or {input *in*
+             output *out*}}]
   (loop [program ops
          position 0]
     (let [{:keys [op] :as parsed-op} (parse-op (program position))
-          {:keys [program position]} (eval-op program position parsed-op)]      
+          {:keys [program position]} (eval-op program position input output parsed-op)]      
       (if (halt? op)
         program
         (recur program
@@ -165,15 +187,15 @@
 
 (deftest test-eval-program
   (is (= [3500 9 10 70 2 3 11 0 99 30 40 50]
-         (eval-program [1 9 10 3 2 3 11 0 99 30 40 50])))
+         (eval-program [1 9 10 3 2 3 11 0 99 30 40 50] {})))
   (is (= [2 0 0 0 99]
-         (eval-program [1 0 0 0 99])))
+         (eval-program [1 0 0 0 99] {})))
   (is (= [2 3 0 6 99]
-         (eval-program [2 3 0 3 99])))
+         (eval-program [2 3 0 3 99] {})))
   (is (= [2 4 4 5 99 9801]
-         (eval-program [2 4 4 5 99 0])))
+         (eval-program [2 4 4 5 99 0] {})))
   (is (= [30 1 1 4 2 5 6 0 99]
-         (eval-program [1 1 1 4 99 5 6 0 99]))))
+         (eval-program [1 1 1 4 99 5 6 0 99] {}))))
 
 
 (deftest test-parse-op

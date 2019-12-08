@@ -2,22 +2,29 @@
   (:require [advent-2019.sunny-with-a-chance-of-asteroids :as intcode]
             [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.core.async :as async]
+            [clojure.core.async :as async :refer [chan go]]
             [clojure.test :refer [deftest is]]))
 
-(defrecord Wire [channel]
+(Thread/setDefaultUncaughtExceptionHandler
+ (reify Thread$UncaughtExceptionHandler
+   (uncaughtException [_ thread ex]
+     (println "Uncaught exception on" (.getName thread))
+     (.printStackTrace ex))))
+
+(defrecord Wire [name channel]
   intcode/Input
   (read-instruction [this]
     (let [next (async/<!! channel)]
-      (if (int? next)
-        next
-        (Integer/parseInt next))))
+      (println name " received: " next)
+      next))
   intcode/Output
-  (write [this v] (async/>!! channel v)))
+  (write [this v]
+    (async/>!! channel v)))
 
 (defprotocol Amplifier
   (start [this])
-  (halted? [this]))
+  (halted? [this])
+  (inspect [this]))
 
 
 (defn eval-amplify
@@ -54,17 +61,19 @@
                              :position 0
                              :halted? false})]
     (reify Amplifier
-      (start [this] (Thread.
-                     (fn []
-                       (async/>!! input phase) ;; the first input is always phase.
-                       (if (halted? this)
-                         @program-state
-                         (let [state (intcode/eval-op (:program @program-state)
-                                                      (:position @program-state)
-                                                      input
-                                                      output)]
-                           (swap! program-state state))))))
-      (halted? [this] (:halted? @program-state)))))
+      (start [this] (do
+                      (intcode/write input phase) ;; the first input is always phase.
+                      (async/thread
+                        (while (not (halted? this))
+                          (let [new-state (intcode/eval-op (:program @program-state)
+                                                           (:position @program-state)
+                                                           input
+                                                           output)]
+                            (swap! program-state (constantly new-state)))))))
+      (halted? [this] (:halted? @program-state))
+      (inspect [this] {:position (:position @program-state)
+                       :input input
+                       :output output}))))
 
 
 (defn find-max-thruster-signal

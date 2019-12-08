@@ -142,6 +142,7 @@
   "Evals the op at the given position and returns new program and position,
   optionally returns a :halted? flag if done."
   [program position input output]
+  (println "program: " program ", position: " position)
   (let [{:keys [op] :as parsed-op} (parse-op (program position))]
     (cond
       (= op 1) (eval-add program position parsed-op)

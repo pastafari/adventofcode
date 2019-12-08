@@ -98,6 +98,7 @@
   (let [program (intcode/read-program file)]
     (find-max-thruster-signal program (range 5))))
 
+;; TODO: write solve-2 that iterates over possible phase values
 
 (deftest test-eval-amplifier-circuit
   (is (= 43210 (eval-amplifier-circuit [4 3 2 1 0]

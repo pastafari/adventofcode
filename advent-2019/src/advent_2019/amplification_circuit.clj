@@ -1,9 +1,10 @@
 (ns advent-2019.amplification-circuit
   (:require [advent-2019.sunny-with-a-chance-of-asteroids :as intcode]
+            [advent-2019.protocols.amplifiers :as amplifiers]
             [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.core.async :as async :refer [chan go]]
-            [clojure.test :refer [deftest is]]))
+            [clojure.test :refer [deftest is]])
+  (:import (java.util.concurrent ArrayBlockingQueue)))
 
 (Thread/setDefaultUncaughtExceptionHandler
  (reify Thread$UncaughtExceptionHandler
@@ -11,21 +12,20 @@
      (println "Uncaught exception on" (.getName thread))
      (.printStackTrace ex))))
 
-(defrecord Wire [name channel]
-  intcode/Input
+(defrecord Wire [name queue]
+  amplifiers/Input
   (read-instruction [this]
-    (let [next (async/<!! channel)]
+    (let [next (.take queue)]
       (println name " received: " next)
       next))
-  intcode/Output
+  amplifiers/Output
   (write [this v]
-    (async/>!! channel v)))
+    (.put queue v)))
 
-(defprotocol Amplifier
-  (start [this])
-  (halted? [this])
-  (inspect [this]))
-
+(defn build-wire
+  [name]
+  (let [queue (ArrayBlockingQueue. 1000)]
+    (Wire. name queue)))
 
 (defn eval-amplify
   "An amplifier has two inputs: phase and input.
@@ -60,18 +60,21 @@
   (let [program-state (atom {:program program
                              :position 0
                              :halted? false})]
-    (reify Amplifier
+    (reify amplifiers/Amplifier
       (start [this] (do
-                      (intcode/write input phase) ;; the first input is always phase.
-                      (async/thread
-                        (while (not (halted? this))
-                          (let [new-state (intcode/eval-op (:program @program-state)
-                                                           (:position @program-state)
-                                                           input
-                                                           output)]
-                            (swap! program-state (constantly new-state)))))))
+                      (amplifiers/write input phase) ;; the first input is always phase.
+                      (.start
+                       (Thread.
+                        (fn []
+                          (while (not (amplifiers/halted? this))
+                            (let [new-state (intcode/eval-op (:program @program-state)
+                                                             (:position @program-state)
+                                                             input
+                                                             output)]
+                              (swap! program-state (constantly new-state)))))))))
       (halted? [this] (:halted? @program-state))
       (inspect [this] {:position (:position @program-state)
+                       :halted? (:halted? @program-state)
                        :input input
                        :output output}))))
 

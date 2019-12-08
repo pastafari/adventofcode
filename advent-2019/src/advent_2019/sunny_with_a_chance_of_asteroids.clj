@@ -1,22 +1,16 @@
 (ns advent-2019.sunny-with-a-chance-of-asteroids
-  (:require [clojure.string :as str]
+  (:require [advent-2019.protocols.amplifiers :as amplifiers]   
+            [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.test :refer [deftest is]]))
 
-(defprotocol Input
-  "Represents an Input to an Intcode instruction"
-  (read-instruction [this] "Reads an input string, can block"))
-
-(defprotocol Output
-  (write [this v] "Writes an output string, can block"))
-
 ;; This allows us to use *in* and *out* as defaults for reading
 ;; and writing. But makes the system extensible for Day 7 - Part 2.
-(extend-protocol Input
+(extend-protocol amplifiers/Input
   clojure.lang.LineNumberingPushbackReader
   (read-instruction [this] (Integer/parseInt (.readLine this))))
 
-(extend-protocol Output
+(extend-protocol amplifiers/Output
   java.io.PrintWriter
   (write [this v] (.println this v)))
 
@@ -57,7 +51,7 @@
 (defn eval-input
   "Waits for an input from an Input, then updates and returns program"
   [program position input _]
-  (let [arg (read-instruction input)
+  (let [arg (amplifiers/read-instruction input)
         destination (program (inc position))]
     {:program (assoc-in program [destination] arg)
      :position (+ position 2)}))
@@ -66,7 +60,7 @@
   "Writes a val to an Output. Returns program"
   [program position output {:keys [mode-1]}]
   (let [arg (get-argument program (inc position) mode-1)]
-    (write output arg)
+    (amplifiers/write output arg)
     {:program program
      :position (+ position 2)}))
  
@@ -142,7 +136,6 @@
   "Evals the op at the given position and returns new program and position,
   optionally returns a :halted? flag if done."
   [program position input output]
-  (println "program: " program ", position: " position)
   (let [{:keys [op] :as parsed-op} (parse-op (program position))]
     (cond
       (= op 1) (eval-add program position parsed-op)

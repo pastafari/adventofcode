@@ -43,7 +43,6 @@
                           (intcode/eval-program program)))]
     (Integer/parseInt (str/trim output-string))))
 
-
 (defn eval-amplifier-circuit
   "Evaluates an amplifier circuit with the given sequence of phases
   an Intcode program and a start-input to the first amplifier.
@@ -74,10 +73,22 @@
                               (swap! program-state (constantly new-state)))))))))
       (halted? [this] (:halted? @program-state))
       (inspect [this] {:position (:position @program-state)
+                       :phase phase
                        :halted? (:halted? @program-state)
                        :input input
                        :output output}))))
 
+(defn phase-combinations
+  "Generates all possible phase combinations for 5 amplifiers"
+  [start end]
+  (let [phase-range (range start (inc end))]
+    (for [a phase-range
+          b phase-range
+          c phase-range
+          d phase-range
+          e phase-range
+          :when (= (distinct [a b c d e]) [a b c d e])]
+      [a b c d e])))
 
 (defn find-max-thruster-signal
   "evals program for all possible DISTINCT phase combinations,
@@ -93,12 +104,54 @@
                            (eval-amplifier-circuit [a b c d e] program))]
     (apply max thruster-signals)))
 
+(defn build-amplifier-circuit
+  "Builds a new amplifier circuit with new wires!"
+  [program phases]
+  (let [a-b (build-wire "a-b")
+        b-c (build-wire "b-c")
+        c-d (build-wire "c-d")
+        d-e (build-wire "d-e")
+        e-a (build-wire "e-a")
+        [pa pb pc pd pe] phases]
+    {:amplifiers [(build-amplifier program pa e-a a-b)
+                  (build-amplifier program pb a-b b-c)
+                  (build-amplifier program pc b-c c-d)
+                  (build-amplifier program pd c-d d-e)
+                  (build-amplifier program pe d-e e-a)]
+     :wires [a-b b-c c-d d-e e-a]}))
+
+
+(defn eval-circuit-with-feedback
+  "Evaluates the result of running a circuit.
+  - Start the circuit.
+  - Send 0 to amp A exactly once, thus we write the instruction 0
+  to wire e-a.
+  - Return the circuit as result"
+  [{:keys [amplifiers wires] :as circuit}]
+  (let [wire-e-a (last wires)]
+    (doseq [a amplifiers]
+      (amplifiers/start a)) ;; start circuit
+    (amplifiers/write wire-e-a 0)  ;; write 0 to wire e-a
+    ;; wait for circuit to halt
+    (while (not (every? amplifiers/halted? amplifiers))
+      (Thread/sleep 10))
+    ;; result is output on the last wire.
+    (amplifiers/read-instruction wire-e-a)))
+
 (defn solve-1
   [file]
   (let [program (intcode/read-program file)]
     (find-max-thruster-signal program (range 5))))
 
-;; TODO: write solve-2 that iterates over possible phase values
+(defn solve-2
+  [file]
+  (let [program (intcode/read-program file)
+        phase-ranges (phase-combinations 5 9)
+        circuit-outputs (doall
+                            (for [phases phase-ranges]
+                              (let [circuit (build-amplifier-circuit program phases)]
+                                (future (eval-circuit-with-feedback circuit)))))]
+    (apply max (map deref circuit-outputs))))
 
 (deftest test-eval-amplifier-circuit
   (is (= 43210 (eval-amplifier-circuit [4 3 2 1 0]

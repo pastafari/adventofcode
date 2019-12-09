@@ -30,6 +30,14 @@
   [mode]
   (= 2 mode))
 
+(defn get-destination
+  "Special case for op-codes that write to a destination.
+  IMO this breaks the semantics of position and relative mode"
+  [{:keys [relative-base] :as program} position mode]
+  (if (relative-mode? mode)
+    (+ relative-base (program position 0))
+    (program position 0)))
+
 (defn parse-op
   "Parses an op that of the form ABCDE. Pads ops with leading zeros to fit format.
   See test-parse-op for details"
@@ -60,9 +68,9 @@
 
 (defn eval-input
   "Waits for an input from an Input, then updates and returns program"
-  [program position input _]
+  [program position input {:keys [mode-1]}]
   (let [arg (amplifiers/read-instruction input)
-        destination (program (inc position))]
+        destination (get-destination program (inc position) mode-1)]
     {:program (assoc-in program [destination] arg)
      :position (+ position 2)}))
 
@@ -79,7 +87,7 @@
   [program position {:keys [mode-1 mode-2 mode-3]}]
   (let [arg1 (get-argument program (+ position 1) mode-1)
         arg2 (get-argument program (+ position 2) mode-2)
-        destination (program (+ position 3))]
+        destination (get-destination program (+ position 3) mode-3)]
     {:program (assoc-in program [destination] (+ arg1
                                                  arg2))
      :position (+ position 4)}))
@@ -89,7 +97,7 @@
   [program position {:keys [mode-1 mode-2 mode-3] :as parsed-op}]
   (let [arg1 (get-argument program (+ position 1) mode-1)
         arg2 (get-argument program (+ position 2) mode-2)
-        destination (program (+ position 3))]
+        destination (get-destination program (+ position 3) mode-3)]
     {:program (assoc-in program [destination] (* arg1
                                                  arg2))
      :position (+ position 4)}))
@@ -120,10 +128,10 @@
   "if the first parameter is less than the second parameter,
   it stores 1 in the position given by the third parameter.
   Otherwise, it stores 0."
-  [program position {:keys [op mode-1 mode-2] :as parsed-op}]
+  [program position {:keys [op mode-1 mode-2 mode-3] :as parsed-op}]
   (let [arg1 (get-argument program (+ position 1) mode-1)
         arg2 (get-argument program (+ position 2) mode-2)
-        destination (program (+ position 3))
+        destination (get-destination program (+ position 3) mode-3)
         new-position (+ position 4)
         value (if (< arg1 arg2) 1 0)]
     {:program (assoc-in program [destination] value)
@@ -133,10 +141,10 @@
   "if the first parameter is equal to the second parameter,
   it stores 1 in the position given by the third parameter.
   Otherwise, it stores 0."
-  [program position {:keys [op mode-1 mode-2] :as parsed-op}]
+  [program position {:keys [op mode-1 mode-2 mode-3] :as parsed-op}]
   (let [arg1 (get-argument program (+ position 1) mode-1)
         arg2 (get-argument program (+ position 2) mode-2)
-        destination (program (+ position 3))
+        destination (get-destination program (+ position 3) mode-3)
         new-position (+ position 4)
         value (if (= arg1 arg2) 1 0)]
     {:program (assoc-in program [destination] value)
@@ -221,5 +229,5 @@
 
 
 (deftest test-get-argument
-  (is (= 222 (get-argument [222 0 0 0] 1 0)))
-  (is (= 0 (get-argument [222 0 0 0] 1 1))))
+  (is (= 222 (get-argument {0 222 1 0 2 0 3 0} 1 0)))
+  (is (= 0 (get-argument {0 222 1 0 2 0 3 0} 1 1))))

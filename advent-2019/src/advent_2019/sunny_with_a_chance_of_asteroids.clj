@@ -49,10 +49,14 @@
   "Gets argument depending on immediate v/s position mode"
   [program position mode]
   (cond
-    (position-mode? mode) (program (program position))
+    ;; we could be addressing memory with nothing in it,
+    ;; which defaults to 0
+    (position-mode? mode) (or (program (program position)) 0)
     (immediate-mode? mode) (program position)
-    (relative-mode? mode) (program (+ (:relative-base program)
-                                      position))))
+    ;; relative is like position but relative to relative-base!
+    (relative-mode? mode) (or (program (+ (:relative-base program)
+                                          (program position)))
+                              0)))
 
 (defn eval-input
   "Waits for an input from an Input, then updates and returns program"
@@ -142,7 +146,7 @@
   "adjusts the relative base by the value of its only parameter.
   The relative base increases (or decreases, if the value is negative)
   by the value of the parameter"
-  [program position {:keys [op mode-1] :as parsed-op}]
+  [program position {:keys [mode-1]}]
   (let [arg1 (get-argument program (+ position 1) mode-1)
         new-position (+ position 2)]
     {:program (update-in program [:relative-base] #(+ arg1 %))
@@ -151,7 +155,7 @@
 (defn eval-op
   "Evals the op at the given position and returns new program and position,
   optionally returns a :halted? flag if done."
-  [{:keys [relative-base] :as program-state} position input output]  
+  [{:keys [relative-base] :as program-state} position input output]
   (let [{:keys [op] :as parsed-op} (parse-op (program-state position))]
     (cond
       (= op 1) (eval-add program-state position parsed-op)

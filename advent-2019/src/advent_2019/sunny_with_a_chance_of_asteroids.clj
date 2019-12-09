@@ -26,6 +26,10 @@
   [mode]
   (= 1 mode))
 
+(defn relative-mode?
+  [mode]
+  (= 2 mode))
+
 (defn parse-op
   "Parses an op that of the form ABCDE. Pads ops with leading zeros to fit format.
   See test-parse-op for details"
@@ -46,7 +50,9 @@
   [program position mode]
   (cond
     (position-mode? mode) (program (program position))
-    (immediate-mode? mode) (program position)))
+    (immediate-mode? mode) (program position)
+    (relative-mode? mode) (program (+ (:relative-base program)
+                                      position))))
 
 (defn eval-input
   "Waits for an input from an Input, then updates and returns program"
@@ -132,36 +138,49 @@
     {:program (assoc-in program [destination] value)
      :position new-position}))
 
+(defn eval-relative-base-offset
+  "adjusts the relative base by the value of its only parameter.
+  The relative base increases (or decreases, if the value is negative)
+  by the value of the parameter"
+  [program position {:keys [op mode-1] :as parsed-op}]
+  (let [arg1 (get-argument program (+ position 1) mode-1)
+        new-position (+ position 2)]
+    {:program (update-in program [:relative-base] #(+ arg1 %))
+     :position new-position}))
+
 (defn eval-op
   "Evals the op at the given position and returns new program and position,
   optionally returns a :halted? flag if done."
-  [program position input output]
-  (let [{:keys [op] :as parsed-op} (parse-op (program position))]
+  [{:keys [relative-base] :as program-state} position input output]  
+  (let [{:keys [op] :as parsed-op} (parse-op (program-state position))]
     (cond
-      (= op 1) (eval-add program position parsed-op)
-      (= op 2) (eval-multiply program position parsed-op)
-      (= op 3) (eval-input program position input parsed-op)
-      (= op 4) (eval-output program position output parsed-op)
-      (= op 5) (eval-jump-if-true program position parsed-op)
-      (= op 6) (eval-jump-if-false program position parsed-op)
-      (= op 7) (eval-less-than program position parsed-op)
-      (= op 8) (eval-equals program position parsed-op)
-      (halt? op) {:program program :position position :halted? true})))
+      (= op 1) (eval-add program-state position parsed-op)
+      (= op 2) (eval-multiply program-state position parsed-op)
+      (= op 3) (eval-input program-state position input parsed-op)
+      (= op 4) (eval-output program-state position output parsed-op)
+      (= op 5) (eval-jump-if-true program-state position parsed-op)
+      (= op 6) (eval-jump-if-false program-state position parsed-op)
+      (= op 7) (eval-less-than program-state position parsed-op)
+      (= op 8) (eval-equals program-state position parsed-op)
+      (= op 9) (eval-relative-base-offset program-state position parsed-op)
+      (halt? op) {:program program-state :position position :halted? true})))
 
 
 (defn eval-program
   "Evaluates a vector representing an Intcode program.
+  Creates an internal representation as a map to manage relative-base and
+  allow for arbitrary memory addressing.
   Allows input-stream and output-stream to be configured via optional keys"
-  [ops {:keys [input output]
-        :or {input *in*
-             output *out*}}]
-  (loop [program ops
-         position 0]
-    (let [{:keys [program position halted?] :or {halted? false} :as result} (eval-op program position input output)]
-      (if halted?
-        result
-        (recur program
-               position)))))
+  [ops {:keys [input output] :or {input *in* output *out*}}]
+  (let [initial-program (into {:relative-base 0} (map-indexed vector ops))]
+    (loop [program initial-program
+           position 0]
+      (let [{:keys [program position halted?] :or {halted? false} :as result}
+            (eval-op program position input output)]
+        (if halted?
+          result
+          (recur program
+                 position))))))
 
 (defn read-program
   "Reads in csv input from file and returns a vector of integers
@@ -179,15 +198,15 @@
 
 
 (deftest test-eval-program
-  (is (= [3500 9 10 70 2 3 11 0 99 30 40 50]
+  (is (= {:relative-base 0, 0 3500, 7 0, 1 9,  4 2, 6 11, 3 70, 2 10, 11 50, 9 30, 5 3, 10 40, 8 99}
          (:program (eval-program [1 9 10 3 2 3 11 0 99 30 40 50] {}))))
-  (is (= [2 0 0 0 99]
+  (is (= {:relative-base 0, 0 2, 1 0, 2 0, 3 0, 4 99}
          (:program (eval-program [1 0 0 0 99] {}))))
-  (is (= [2 3 0 6 99]
+  (is (= {:relative-base 0, 0 2, 1 3, 2 0, 3 6, 4 99}
          (:program (eval-program [2 3 0 3 99] {}))))
-  (is (= [2 4 4 5 99 9801]
+  (is (= {:relative-base 0, 0 2, 1 4, 2 4, 3 5, 4 99, 5 9801}
          (:program (eval-program [2 4 4 5 99 0] {}))))
-  (is (= [30 1 1 4 2 5 6 0 99]
+  (is (= {0 30, 7 0, 1 1, :relative-base 0, 4 2, 6 6, 3 4, 2 1, 5 5, 8 99}
          (:program (eval-program [1 1 1 4 99 5 6 0 99] {})))))
 
 

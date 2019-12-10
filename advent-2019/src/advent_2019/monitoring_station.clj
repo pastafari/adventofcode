@@ -62,13 +62,30 @@
                                                    line)))
                                    lines)))))
 
+(defn angle
+  "Gets the angle between two points in the plane in degrees modulo 360"
+  [[x1 y1] [x2 y2]]
+  (let [deg (Math/toDegrees (+ (Math/atan2 (- y2 y1) (- x2 x1))
+                               (/ Math/PI 2)))]
+    (mod deg 360)))
+
 (defn solve-1
   [file]
   (let [asteroids (read-asteroids file)
-        visible-count (map (fn [a] (count-visible-asteroids a asteroids))
-                           asteroids)]    
-    (:count (first (sort-by (comp - :count) visible-count)))))
+        visible (map (fn [a] (count-visible-asteroids a asteroids))
+                     asteroids)]    
+    (apply max-key :count visible)))
 
+(defn solve-2
+  [file a]
+  (let [asteroids (read-asteroids file)
+        visible (get-visible-asteroids a asteroids)
+        angles-and-distances (map (fn [v] {:angle (angle a v)
+                                          :distance (squared-distance a v)
+                                          :asteroid v})
+                                  visible)
+        sorted (sort-by (juxt :angle :distance) angles-and-distances)]
+    (nth sorted 199)))
 
 (deftest test-is-between?
   (is (is-between? [1 0] [4 0] [3 0]))

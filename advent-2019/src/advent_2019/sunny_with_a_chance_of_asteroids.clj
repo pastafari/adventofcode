@@ -198,7 +198,7 @@
   "Reads in csv input from file and returns a vector of integers
   representing the Intcode program"
   [file]
-  (vec (map #(Integer/parseInt %)
+  (vec (map #(Long/parseLong %)
             (str/split
              (str/trim (slurp (io/reader (io/resource file))))
              #","))))

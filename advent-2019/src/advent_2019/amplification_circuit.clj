@@ -16,7 +16,6 @@
   amplifiers/Input
   (read-instruction [this]
     (let [next (.take queue)]
-      (println name " received: " next)
       next))
   amplifiers/Output
   (write [this v]
@@ -56,7 +55,8 @@
   "Builds a stateful amplifier which remembers its program memory
   and instruction pointer during evaluation"
   [program phase input output]
-  (let [program-state (atom {:program program
+  (let [program-state (atom {:program (into {:relative-base 0}
+                                            (map-indexed vector program))
                              :position 0
                              :halted? false})]
     (reify amplifiers/Amplifier

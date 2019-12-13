@@ -53,16 +53,16 @@
   After the robot turns, it should always move forward exactly one panel. The robot starts facing up.
   
   "
-  [program]
-  (let [input (circuit/build-wire "in")
-        output (circuit/build-wire "out")
-        ;; hack to use the phase input as the first color!
-        evaluator (circuit/build-amplifier program BLACK input output)
+  [program start-panel-color input output]
+  (let [;; hack to use the phase input as the first color!
+        evaluator (circuit/build-amplifier program start-panel-color input output)
         robot-state (atom {:orientation :north
                            :position [0 0]
-                           :white-panels #{}
+                           :white-panels (if (= WHITE start-panel-color)
+                                           #{[0 0]} ;;part two starts on a white panel
+                                           #{}) ;; part one starts on a black panel
                            :painted-panels #{}})]
-    ;; start evaluating the program, first input is already provided by phase, so BLACK!
+    ;; start evaluating the program, first input is already provided by phase, so WHITE!
     (amplifiers/start evaluator)
     (while (not (amplifiers/halted? evaluator))
       (let [paint-color (amplifiers/read-instruction output)

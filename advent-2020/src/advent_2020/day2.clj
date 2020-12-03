@@ -35,12 +35,26 @@
 
 
 (defn valid-password-min-max?
-  "Takes a string of the form 1-3 a: xyxxaxxax and returns true iff password
-is valid"
+  "Takes a string of the form 1-3 a: xyxxaxxax and returns true iff
+a occurs at least 1 and at most 3 times"
   [s]
   (let [rule-and-password (parse-rule-and-password s)]
     (and (min-rule? rule-and-password)
          (max-rule? rule-and-password))))
+
+(defn valid-password-positions?
+  "Takes a string of the form 1-3 a: xyxxaxxax and returns true iff
+  a occurs at least 1 and at most 3 times"
+  [s]
+  (let [{:keys [rule password]} (parse-rule-and-password s)
+        ;; positions are 1 indexed
+        pos1 (dec (:n1 rule))
+        pos2 (dec (:n2 rule))
+        c (.charAt (:char-str rule) 0)
+        c1 (.charAt password pos1)
+        c2 (.charAt password pos2)]
+    (and (or (= c c1) (= c c2))
+         (not (= c1 c2)))))
 
 
 (defn day2-1
@@ -48,6 +62,12 @@ is valid"
   [file]
   (let [rules-and-passwords (utils/read-input-file file)]
     (count (filter valid-password-min-max? rules-and-passwords))))
+
+(defn day2-2
+  "Reads input, returns count of valid passwords"
+  [file]
+  (let [rules-and-passwords (utils/read-input-file file)]
+    (count (filter valid-password-positions? rules-and-passwords))))
 
 
 (deftest test-valid-password-min-max?
@@ -57,3 +77,10 @@ is valid"
     (is (true? (valid-password-min-max? "3-7 g: gdgtnfggq"))))
   (testing "it is not valid if some conditions not met"
     (is (false? (valid-password-min-max? "1-3 b: cdefg")))))
+
+(deftest test-valid-password-positions?
+  (testing "it is valid if all conditions met"
+    (is (true? (valid-password-positions? "1-3 a: abcde"))))
+  (testing "it is not valid if some conditions not met"
+    (is (false? (valid-password-positions? "2-9 c: ccccccccc")))
+    (is (false? (valid-password-positions? "1-3 b: cdefg")))))

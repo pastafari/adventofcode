@@ -42,10 +42,25 @@
                  next-coordinate))))))
 
 
+(defn make-area
+  "Reads file builds an area"
+  [file]
+  (-> file
+      (utils/read-input-file)
+      (build-map)))
+
 (defn day3-1
   "Takes input file, counts trees encountered on slope 3,1"
   [file]
   (-> file
-      (utils/read-input-file)
-      (build-map)
+      (make-area)
       (count-trees [0 0] [3 1])))
+
+(defn day3-2
+  "Takes input file, counts trees encountered on slopes
+  [1,1],[3,1],[5,1],[7,1],[1,2]"
+  [file]
+  (let [area (make-area file)
+        slopes [[1 1] [3 1] [5 1] [7 1] [1 2]]
+        tree-counts (map #(count-trees area [0 0] %) slopes)]
+    (apply * tree-counts)))

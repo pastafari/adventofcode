@@ -49,12 +49,29 @@
   (let [edges (mapcat rule->edges rules)]
     (apply graph/digraph edges)))
 
-(defn find-bags-that-can-contain
+(defn rule->edges-1
+  [{:keys [bag contains]}]
+  (map (fn [[color n]] [bag color n]) contains))
+
+(defn build-graph-1
+  "Takes rules and builds a weighted digraph representing them,
+  an edge represents the fact that a bag contains n other bags pointing from containee to container"
+  [rules]
+  (let [edges (mapcat rule->edges-1 rules)]
+    (apply graph/digraph edges)))
+
+(defn count-bags-that-can-contain
   "Finds all bags reachable from given color"
   [color graph]
   (let [start-node (alg/shortest-path graph {:start-node color})]
     ;; decrement count because the start node is included in the result.
     (dec (count (alg/all-destinations start-node)))))
+
+(defn count-bags-contained-in
+  "Counts cumulative weight of all nodes reachable from given color"
+  [color graph]
+  (let [edges color]
+    ))
 
 (defn day7-1
   "How many bag colors can eventually contain at least one shiny gold bag?"
@@ -63,4 +80,13 @@
        utils/read-input-file
        (map parse-rule)
        build-graph
-       (find-bags-that-can-contain :shiny-gold)))
+       (count-bags-that-can-contain :shiny-gold)))
+
+(defn day7-2
+  "How many individual bags are required inside your single shiny gold bag?"
+  [file]
+  (->> file
+       utils/read-input-file
+       (map parse-rule)
+       build-graph-1
+       (count-bags-contained-in :shiny-gold)))

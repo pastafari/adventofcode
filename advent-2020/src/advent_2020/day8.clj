@@ -43,6 +43,38 @@
                                                     :offset offset})]
         (recur next-offset next-acc (conj executed? offset))))))
 
+(defn does-program-terminate?
+  "A program terminates if it attempts to execute an instruction
+  immediately after the last instruction in the file. If an instruction is
+  repeated, we conclude that the program does not terminate."
+  [program]
+  (loop [offset 0
+         acc 0
+         executed? #{}]
+    (if (executed? offset)
+      false
+      (if (= offset (count program))
+        true
+        (let [next-instr (nth program offset)
+              {:keys [next-acc next-offset]} (eval-instruction {:program program
+                                                                :acc acc
+                                                                :offset offset})]
+          (recur next-offset next-acc (conj executed? offset)))))))
+
+(defn eval-until-terminates
+  "Evals a program until it attempts to execute an instruction
+  immediately after the last instruction in the file"
+  [program])
+
+(defn gen-program-with-changed-opcode
+  "Generates a lazy seq of programs with exactly one nop changed to jmp or
+jmp changed to nop"
+  ([program]
+   (lazy-seq (cons
+              (let [[changed-offset program]]
+                (gen-program-with-changed-opcode program 0)))))
+  ([program n]))
+
 
 (defn day8-1
   "Run your copy of the boot code.

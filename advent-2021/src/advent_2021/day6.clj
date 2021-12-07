@@ -1,6 +1,5 @@
 (ns advent-2021.day6
-  (:require [advent-2021.util :as util]
-            [clojure.string :as str]))
+  (:require [advent-2021.util :as util]))
 
 (defn simulate-lanternfish
   "Takes a map of timers to count"
@@ -16,12 +15,6 @@
      7 (get timer-counts 8 0)
      8 new-fish-count}))
 
-(defn parse-timers
-  [x]
-  (mapv #(Integer/parseInt %)
-        (str/split x #",")))
-
-
 (defn solve
   "Gets count after n days"
   [file n]
@@ -29,7 +22,7 @@
                   util/read-input-file
                   ;; because read returns a line-seq
                   first
-                  parse-timers
+                  util/csv->ints
                   frequencies
                   (iterate simulate-lanternfish))]
     (apply + (vals (nth sims n)))))
